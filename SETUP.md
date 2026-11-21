@@ -28,7 +28,7 @@ Demo data is loaded automatically:
 | Welding batch 2 (Nagpur) | District review | Only Ravi can see it; Pune officers can't |
 
 ## 3. A five-minute tour of the key moments
-1. **Bad spreadsheet (moment 1):** pick **Anika** → create a batch → upload `samples/batch-with-errors.csv`. Every problem is listed by row and column; nothing is saved. Upload `samples/batch-60-valid.csv` → 60 candidates → **Submit**.
+1. **Bad spreadsheet (moment 1):** pick **Anika** → create a batch → upload `samples/bad-mixed-errors.csv`. Every problem is listed by row and column; nothing is saved. Upload `samples/good-60-candidates.csv` → 60 candidates → **Submit**.
 2. **District review (moment 2):** pick **Dev** → *Waiting for me* → open the batch → Approve. Pick **Meera** → Approve. It moves on once (60 > 50, so it goes to Neha). To see the race itself, run the concurrency test (below) or approve as Dev and Meera within the same second from two tabs.
 3. **Quality and final approval (moment 3):** **Neha** approves, then **Farah** approves. Open **Phones (demo)**: each of the 60 candidates gets exactly one message, even though the stand-in provider fails 20% of calls and times out on 10%. The counters show failures, timeouts and duplicates blocked. Click a message's download link to get the PDF.
 4. **Cancel and verify (moment 4):** as **Farah**, open **Certificates** → *Cancel certificate* with a reason. Open the PDF's QR code or use **Verify** with its number and code: it says **Cancelled: not valid**.

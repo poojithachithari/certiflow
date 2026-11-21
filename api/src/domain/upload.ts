@@ -55,7 +55,8 @@ const rowSchema = z.object({
     .min(2, "is required (at least 2 characters)")
     .max(100, "is too long (max 100)")
     // Letters (any script), spaces, dot, apostrophe, hyphen. Also blocks spreadsheet formula injection (=, +, @).
-    .regex(/^\p{L}[\p{L}\p{M} .'-]*$/u, "may contain only letters, spaces, . ' -"),
+    // (empty passes this regex so a blank name reports only "is required")
+    .regex(/^$|^\p{L}[\p{L}\p{M} .'-]*$/u, "may contain only letters, spaces, . ' -"),
   phone: z.string().transform((v, ctx) => {
     const p = normalisePhone(v);
     if (!p) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "must be a 10-digit Indian mobile number" });

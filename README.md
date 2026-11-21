@@ -173,7 +173,7 @@ api/
   src/mock-whatsapp/server.ts   stand-in provider
   test/                         the test suite
 web/src/                        React app (pages/, session.tsx live updates, ui.tsx shared pieces)
-samples/                        batch-60-valid.csv, batch-with-errors.csv
+samples/                        good-* and bad-* spreadsheets (see samples/README.md)
 ```
 
 ---
