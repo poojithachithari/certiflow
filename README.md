@@ -5,6 +5,7 @@ Skilling certificate issuance for the (fictional) Pragati Skills Mission: traini
 - **Run it:** `docker compose up --build`, then open http://localhost:8080. Full guide: [SETUP.md](SETUP.md)
 - **Run the tests:** `docker compose --profile test run --rm --build test`
 - **Production plan:** [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Demo video (2 min):** https://drive.google.com/file/d/12cfyJrfXCxkdw2Wet4Sumwshm27xdI7K/view?usp=sharing
 
 ---
 
