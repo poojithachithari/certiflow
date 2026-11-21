@@ -2,9 +2,14 @@
 
 Skilling certificate issuance for the (fictional) Pragati Skills Mission: training centres submit passed batches, officers approve them in stages, every candidate gets exactly one certificate on WhatsApp, and anyone can check a certificate is genuine.
 
-- **Run it:** `docker compose up --build`, then open http://localhost:8080. Full guide: [SETUP.md](SETUP.md)
-- **Run the tests:** `docker compose --profile test run --rm --build test`
-- **Production plan:** [DEPLOYMENT.md](DEPLOYMENT.md)
+### Quick start
+Needs only **Docker Desktop** (running). From a terminal:
+```bash
+git clone https://github.com/<your-account>/certiflow.git
+cd certiflow
+docker compose up --build
+```
+Open **http://localhost:8080** and click a person in the top bar (e.g. **Anika**). Full instructions: **[§2 How to run it](#2-how-to-run-it)** · tests: `docker compose --profile test run --rm --build test` · production plan: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## ▶ Demo video (2 min)
 
@@ -44,7 +49,7 @@ Today ~300 centres email spreadsheets to district offices, officers approve over
 8. Every screen updates live.
 9. Every batch and certificate has a full, append-only history.
 
-**Must never happen** (each is enforced in the database or the state machine *and* covered by a test, see §4)
+**Must never happen** (each is enforced in the database or the state machine *and* covered by a test, see §5)
 - acting at a step that isn't yours, or as someone else
 - two certificates for one candidate, or two sharing a number
 - a cancelled certificate showing as genuine
@@ -72,7 +77,73 @@ Real WhatsApp/Meta integration, real sign-in, email/SMS notifications for escala
 
 ---
 
-## 2. How the system is put together
+## 2. How to run it
+
+### What you need
+- **Docker Desktop** (Windows / Mac) or Docker Engine + Compose v2 (Linux), **running**. Nothing else: Node, Postgres and Redis all run inside containers.
+- **Git**, to clone the repository.
+- Free ports: **8080** (app), 3000 (API), 4000 (mock WhatsApp), 5433 (Postgres), 6380 (Redis).
+
+### Start the system
+```bash
+git clone https://github.com/<your-account>/certiflow.git
+cd certiflow
+docker compose up --build
+```
+The first build takes a few minutes. It's ready when the logs show `seed: demo data created` and `worker started`. Leave this terminal open (or use `docker compose up --build -d` to run it in the background).
+
+Check everything is up (in a second terminal):
+```bash
+docker compose ps
+```
+You should see `api`, `web`, `mock-whatsapp` and two `worker` containers **running**, and `migrate` **exited (0)** (it applies migrations and loads demo data, then stops).
+
+### Use it
+Open **http://localhost:8080**. There is no password: click a person in the **Acting as** bar to become them.
+
+| Person | Role | Try this |
+|---|---|---|
+| Anika | Training centre | Open *Electrician batch* → upload `samples/bad-mixed-errors.csv` (rejected, every error listed), then `samples/good-60-candidates.csv` → **Submit** |
+| Dev, Meera, Kabir | District officers (Pune) | *Waiting for me* → open a batch → **Approve** / **Send back** / **Reject**. Two approvals move it on |
+| Neha | Quality team | Approves batches with more than 50 candidates |
+| Farah | State office | Final **Approve** → certificates are issued and sent. **Certificates**: cancel one. **In review**: overdue batches |
+| Anyone | Employer | **Verify** page, or **Phones (demo)** → *Check it as an employer* |
+| Sunil, Ravi | Nagpur centre / officer | Shows that people only see their own centre or district |
+
+Demo data loaded on startup: a draft batch (Anika), a batch in district review with one approval, one waiting for the state office, one already issued (5 certificates), and one in Nagpur. Batches waiting more than **3 minutes** at a stage are flagged **Overdue** (`SLA_MINUTES` in `docker-compose.yml`; 48 h in real use).
+
+Sample spreadsheets (4 accepted, 11 rejected) are in [`samples/`](samples/README.md). **Phones (demo)** shows what each candidate's WhatsApp received; the stand-in provider fails and times out on purpose, and has a *Simulate WhatsApp outage* button.
+
+A step-by-step tour of every flow is in [SETUP.md](SETUP.md#3-a-five-minute-tour-of-the-key-moments).
+
+### Run the tests
+```bash
+docker compose --profile test run --rm --build test
+```
+Runs all 42 tests against real Postgres and Redis, in a separate `certiflow_test` database (your demo data is not touched). Expected last lines: `Test Files 4 passed`, `Tests 42 passed`.
+
+### Stop, reset, scale
+```bash
+docker compose down              # stop (data kept)
+docker compose down -v           # stop and wipe everything; next `up` starts with fresh demo data
+docker compose up -d --scale worker=4   # more workers: still exactly one certificate per candidate
+docker compose logs -f worker    # watch issuance, WhatsApp retries, escalations
+```
+
+### If something goes wrong
+| Problem | Fix |
+|---|---|
+| `failed to connect to the docker API` | Start Docker Desktop and wait until it says it's running |
+| `port is already allocated` | Another program uses that port: stop it, or change the left-hand number of that port in `docker-compose.yml` |
+| `no configuration file provided` | You're not in the `certiflow` folder: `cd certiflow` |
+| Tests say `database "certiflow_test" does not exist` | The test database is created with a fresh volume: `docker compose down -v`, then `docker compose up -d` and run the tests again |
+| Screens don't update live | The **Live** dot in the top bar should be green; reload the page |
+
+Running without containers (for development) is described in [SETUP.md](SETUP.md#6-developing-without-containers).
+
+---
+
+## 3. How the system is put together
 
 ```mermaid
 flowchart LR
@@ -117,7 +188,7 @@ The rules live in one table, `STAGES` in [`api/src/domain/workflow.ts`](api/src/
 
 ---
 
-## 3. Key technical decisions
+## 4. Key technical decisions
 
 | Decision | Why | Alternative we rejected |
 |---|---|---|
@@ -136,7 +207,7 @@ The rules live in one table, `STAGES` in [`api/src/domain/workflow.ts`](api/src/
 
 ---
 
-## 4. How each requirement is guaranteed, and the test that proves it
+## 5. How each requirement is guaranteed, and the test that proves it
 
 | Requirement | Mechanism | Test (`api/test/`) |
 |---|---|---|
@@ -156,7 +227,7 @@ The rules live in one table, `STAGES` in [`api/src/domain/workflow.ts`](api/src/
 
 ---
 
-## 5. Observability: tracing a batch or certificate
+## 6. Observability: tracing a batch or certificate
 - **In the UI:** every batch page has a *Full history*: every upload, vote, status change, escalation, issuance, delivery attempt (with the provider error) and cancellation, with who and when.
 - **Correlation id:** each request gets one (`x-request-id`). It is stored on every audit row and outbox event and carried into queue jobs and worker logs. Search the logs for it to follow one click from API to worker to WhatsApp.
 - **Logs:** structured JSON (pino) with `service`, `correlationId`, ids and timings: `docker compose logs -f worker`.
@@ -164,7 +235,7 @@ The rules live in one table, `STAGES` in [`api/src/domain/workflow.ts`](api/src/
 
 ---
 
-## 6. Project structure
+## 7. Project structure
 ```
 api/
   prisma/schema.prisma          data model, constraints
@@ -187,7 +258,7 @@ samples/                        good-* and bad-* spreadsheets (see samples/READM
 
 ---
 
-## 7. AI usage
+## 8. AI usage
 We built this with Claude Code (Anthropic) as a pair programmer: it drafted the design, code, tests and docs; a human drove the decisions and reviewed the output. How we checked it:
 - **Every flow run by hand** before writing tests: concurrent approvals with `curl &`, bad uploads, issuance, verification before and after cancelling, wrong-district and wrong-role access, and the whole UI in a browser.
 - **Mutation check on the most important test:** we removed `FOR UPDATE` from the batch lock and confirmed the concurrent-approval test fails, then restored it. A test that can't fail proves nothing.
@@ -197,7 +268,7 @@ We built this with Claude Code (Anthropic) as a pair programmer: it drafted the 
 
 ---
 
-## 8. Known bugs, limitations and next steps
+## 9. Known bugs, limitations and next steps
 Honest list, roughly by importance:
 1. **No re-issue after cancellation.** `UNIQUE(enrolmentNo, courseCode)` also blocks issuing a corrected certificate to the same person. Fix: make it a partial unique index `WHERE status = 'VALID'` plus a "re-issue" action.
 2. **Duplicate-message protection relies on the provider honouring the idempotency key.** Our mock does; Meta's Cloud API does not offer one. With the real provider we'd check our own `SENT` state before each attempt (already done) and reconcile via delivery-status webhooks. A crash *between* the provider accepting and us recording `SENT` could still cause one duplicate. We think that's the right trade-off over losing a message.
