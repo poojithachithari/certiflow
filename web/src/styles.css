@@ -134,7 +134,9 @@ tr.row-attn td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
 .bubble { background: #e7f8dc; border-radius: 12px 12px 12px 2px; padding: 12px 14px; display: grid; gap: 8px; font-size: 14px; color: #16211e; }
 .bubble header { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
 .bubble time { color: #5b6b66; }
-.bubble p { margin: 0; }
+.bubble { min-width: 0; }
+.bubble p { margin: 0; overflow-wrap: anywhere; }
+.bubble header { flex-wrap: wrap; }
 .bubble .btn { justify-self: start; }
 
 .toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: min(380px, calc(100vw - 32px)); }
