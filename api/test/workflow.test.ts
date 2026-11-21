@@ -158,3 +158,38 @@ describe("Never: a decision that cannot be traced to who made it and when", () =
     await expect(prisma.auditEvent.deleteMany({})).rejects.toThrow(/append-only/);
   });
 });
+
+describe("Split vote: one officer rejects, two approve", () => {
+  it("the batch moves on, and the outvoted rejection is recorded and shown to the next reviewer", async () => {
+    const batch = await makeBatch("DISTRICT_REVIEW", 5);
+    expect((await decide("dev", batch.id, "REJECT", "Row 7 scores look copied")).body).toMatchObject({ moved: false, votes: 1, needed: 2 });
+    expect((await decide("meera", batch.id, "APPROVE")).body).toMatchObject({ moved: false });
+    expect((await decide("kabir", batch.id, "APPROVE")).body).toMatchObject({ moved: true, status: "STATE_REVIEW" });
+
+    // Traceable: the transition's audit entry names who was overruled and why.
+    const transition = await prisma.auditEvent.findFirstOrThrow({ where: { entityId: batch.id, action: "status:DISTRICT_REVIEW->STATE_REVIEW" } });
+    expect(transition.data).toMatchObject({ overruledRejections: [{ actorId: "dev", reason: "Row 7 scores look copied" }] });
+
+    // Visible: the state office sees the dissent on the batch and in its list.
+    const detail = await http().get(`/api/batches/${batch.id}`).set(auth("farah"));
+    expect(detail.body.dissent).toEqual([{ actor: "Dev", stage: "DISTRICT", reason: "Row 7 scores look copied" }]);
+    const list = await http().get(`/api/batches`).set(auth("farah"));
+    expect(list.body.find((b: { id: string }) => b.id === batch.id).dissent).toBe(1);
+  });
+
+  it("two rejections win: the batch is rejected and nothing is reported as overruled", async () => {
+    const batch = await makeBatch("DISTRICT_REVIEW", 5);
+    await decide("dev", batch.id, "REJECT", "Fake attendance");
+    await decide("meera", batch.id, "APPROVE");
+    expect((await decide("kabir", batch.id, "REJECT", "Agree, attendance is fake")).body).toMatchObject({ moved: true, status: "REJECTED" });
+    expect((await http().get(`/api/batches/${batch.id}`).set(auth("farah"))).body.dissent).toEqual([]);
+  });
+
+  it("dissent resets with the round: a resubmitted batch starts clean", async () => {
+    const batch = await makeBatch("DISTRICT_REVIEW", 5);
+    await decide("dev", batch.id, "REJECT", "Wrong course");
+    await decide("meera", batch.id, "SEND_BACK", "Please fix the course code");
+    await http().post(`/api/batches/${batch.id}/submit`).set(auth("anika"));
+    expect((await http().get(`/api/batches/${batch.id}`).set(auth("dev"))).body.dissent).toEqual([]);
+  });
+});

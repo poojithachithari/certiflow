@@ -84,6 +84,17 @@ export function BatchDetailPage() {
         <div className="banner warn"><b>Sent back for changes:</b> {batch.lastReason}{isOwnCentre && " Fix the list, upload it again and resubmit. Earlier approvals will not carry over."}</div>
       )}
       {batch.status === "REJECTED" && batch.lastReason && <div className="banner error"><b>Rejected:</b> {batch.lastReason}</div>}
+      {batch.dissent.length > 0 && me?.role !== "CENTRE" && (
+        <div className="banner warn" role="note">
+          <b>Not unanimous.</b> This batch moved on with {batch.dissent.length === 1 ? "a rejection" : `${batch.dissent.length} rejections`} outvoted:
+          <ul className="dissent-list">
+            {batch.dissent.map((d, i) => (
+              <li key={i}><b>{d.actor}</b> rejected it at the {d.stage.toLowerCase()} stage{d.reason ? <>: “{d.reason}”</> : null}</li>
+            ))}
+          </ul>
+          Check this before you decide.
+        </div>
+      )}
 
       {editable && (
         <section className="card action">

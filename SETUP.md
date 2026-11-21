@@ -38,9 +38,9 @@ Demo data is loaded automatically:
 
 ## 4. Run the tests
 ```bash
-docker compose --profile test run --rm test
+docker compose --profile test run --rm --build test
 ```
-This applies migrations to a separate `certiflow_test` database and runs all tests against real Postgres and Redis. Expected: `Tests 39 passed`.
+This applies migrations to a separate `certiflow_test` database and runs all tests against real Postgres and Redis. Expected: `Tests 42 passed`.
 
 Outside Docker (with Postgres and Redis from compose running):
 ```bash

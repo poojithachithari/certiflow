@@ -3,7 +3,7 @@
 Skilling certificate issuance for the (fictional) Pragati Skills Mission: training centres submit passed batches, officers approve them in stages, every candidate gets exactly one certificate on WhatsApp, and anyone can check a certificate is genuine.
 
 - **Run it:** `docker compose up --build`, then open http://localhost:8080. Full guide: [SETUP.md](SETUP.md)
-- **Run the tests:** `docker compose --profile test run --rm test`
+- **Run the tests:** `docker compose --profile test run --rm --build test`
 - **Production plan:** [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
@@ -48,6 +48,7 @@ Today ~300 centres email spreadsheets to district offices, officers approve over
 |---|---|---|
 | "Big batches need extra scrutiny" | More than **50** candidates also go to the quality team (`QUALITY_REVIEW_THRESHOLD`) | Configurable; 50 sits just below the brief's 60-candidate example so the demo shows the path |
 | "A district decision needs more than one officer" | **2 different officers** must approve (or reject). Mixed votes wait for a third officer | Minimum that satisfies the rule without stalling a district |
+| One officer rejects, two approve | **The two approvals win** (whichever action reaches 2 votes first decides). The outvoted rejection is **never silent**: its officer and reason go into the status change's audit entry, the batch shows a **Dissent** badge, and every later reviewer (quality, state office) sees a "Not unanimous" warning with the reason | One officer shouldn't be able to block a batch alone, but the state office has the final say and must see the objection. An officer who hasn't voted before the batch moves on can no longer vote at that stage |
 | Send back | **One** reviewer can send back, reason required | Asking for a fix is reversible and should be fast; it creates no certificate |
 | Approvals after send-back and resubmit (moment 6) | **They no longer count.** Resubmission starts a new *round*; earlier votes stay on record, marked as from an earlier round | An approval covers a specific candidate list, and the list may have changed |
 | "Exactly one certificate" | One per candidate row **and** one per person (enrolment no.) per course across all batches | Stops the same person being certified twice through two batches |
@@ -143,7 +144,7 @@ The rules live in one table, `STAGES` in [`api/src/domain/workflow.ts`](api/src/
 | Never: stranger sees data | Number + HMAC code, masked name, scoped reads, masked phones for reviewers, rate limit | `verify-sla.test.ts` |
 | Never: untraceable decision | Append-only decisions + audit (DB triggers), actor + time + correlation id | `workflow.test.ts` |
 
-**39 tests**, real Postgres and Redis, ~15 s.
+**42 tests**, real Postgres and Redis, ~15 s.
 
 ---
 
@@ -182,7 +183,7 @@ samples/                        good-* and bad-* spreadsheets (see samples/READM
 We built this with Claude Code (Anthropic) as a pair programmer: it drafted the design, code, tests and docs; a human drove the decisions and reviewed the output. How we checked it:
 - **Every flow run by hand** before writing tests: concurrent approvals with `curl &`, bad uploads, issuance, verification before and after cancelling, wrong-district and wrong-role access, and the whole UI in a browser.
 - **Mutation check on the most important test:** we removed `FOR UPDATE` from the batch lock and confirmed the concurrent-approval test fails, then restored it. A test that can't fail proves nothing.
-- **Type checking** (`tsc --noEmit`) on API and web; all 39 tests pass against real Postgres/Redis.
+- **Type checking** (`tsc --noEmit`) on API and web; all 42 tests pass against real Postgres/Redis.
 - **Things the review caught:** a UTF-8 BOM written by PowerShell broke `package.json`; the CSV parser rejected stray quotes a real centre's file might contain (now relaxed, still validated); worker logs were mislabelled as `api`; a cleanup command that would have killed every Node process on the machine was blocked and replaced with a targeted one.
 - The design reasoning (why each pattern, which failure it prevents) is written up in this README so it can be explained line by line.
 

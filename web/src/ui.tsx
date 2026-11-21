@@ -95,7 +95,8 @@ export function Timeline({ url }: { url: string }) {
     <ol className="timeline">
       {rows.map((r) => {
         const text = r.action.startsWith("status:") ? `Status ${r.action.slice(7).replace("->", " → ")}` : ACTION_TEXT[r.action] ?? r.action;
-        const detail = r.data?.reason ?? r.data?.error ?? (r.data?.number && r.entityType === "certificate" ? r.data.number : null) ?? (r.data?.count ? `${r.data.count} candidates` : null);
+        const overruled = r.data?.overruledRejections?.length;
+        const detail = (overruled ? `${overruled} rejection${overruled > 1 ? "s" : ""} outvoted` : null) ?? r.data?.reason ?? r.data?.error ?? (r.data?.number && r.entityType === "certificate" ? r.data.number : null) ?? (r.data?.count ? `${r.data.count} candidates` : null);
         return (
           <li key={r.id}>
             <time>{fmt(r.at)}</time>

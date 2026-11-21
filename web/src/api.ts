@@ -37,9 +37,12 @@ export interface BatchSummary {
   id: string; title: string; courseCode: string; courseName: string; status: BatchStatus; round: number;
   centre: string; district: string; candidates: number; certificates: number; stageEnteredAt: string;
   escalatedAt: string | null; lastReason: string | null; approvals: number; approvalsNeeded: number | null; awaitingMe: boolean; updatedAt: string;
+  /** number of outvoted rejections in the current round */
+  dissent: number;
 }
 
-export interface BatchDetail extends Omit<BatchSummary, "centre" | "district" | "candidates" | "certificates" | "approvals" | "approvalsNeeded"> {
+export interface BatchDetail extends Omit<BatchSummary, "centre" | "district" | "candidates" | "certificates" | "approvals" | "approvalsNeeded" | "dissent"> {
+  dissent: { actor: string; stage: string; reason: string | null }[];
   centre: { id: string; name: string; district: string };
   stage: { stage: string; ownerRole: Role; quorum: Record<string, number> } | null;
   candidates: { id: string; rowNumber: number; enrolmentNo: string; name: string; phone: string; dateOfBirth: string | null; score: number; certificate: { number: string; status: string; deliveryStatus: string } | null }[];

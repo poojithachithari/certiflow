@@ -75,7 +75,7 @@ export function BatchesPage() {
                 <tr key={b.id} className={b.awaitingMe ? "row-attn" : ""}>
                   <td><Link to={`/batches/${b.id}`}><b>{b.title}</b></Link><div className="muted small">{b.courseName}{b.round > 1 ? ` · round ${b.round}` : ""}</div></td>
                   <td>{b.centre}<div className="muted small">{b.district}</div></td>
-                  <td><StatusPill status={b.status} />{b.escalatedAt && <span className="pill pill-escalated">Overdue</span>}</td>
+                  <td><StatusPill status={b.status} />{b.escalatedAt && <span className="pill pill-escalated">Overdue</span>}{b.dissent > 0 && me?.role !== "CENTRE" && <span className="pill pill-escalated" title="An officer's rejection was outvoted">Dissent</span>}</td>
                   <td className="num">{b.candidates}</td>
                   <td>{b.approvalsNeeded ? `${b.approvals} of ${b.approvalsNeeded}` : "–"}</td>
                   <td className="muted">{ago(b.stageEnteredAt)}</td>

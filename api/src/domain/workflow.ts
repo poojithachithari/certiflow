@@ -114,7 +114,17 @@ export async function decide(actor: User, batchId: string, action: DecisionActio
     let status: BatchStatus = batch.status;
     if (votes >= needed) {
       status = action === "APPROVE" ? rule.onApprove(batch._count.candidates) : action === "REJECT" ? "REJECTED" : "SENT_BACK";
-      await transition(tx, batch, status, actor.id, correlationId, reason ? { reason } : {});
+      const data: Record<string, unknown> = reason ? { reason } : {};
+      if (action === "APPROVE") {
+        // DECISION: approvals that reach quorum win, but an outvoted rejection is never silent.
+        // It is written into the transition's audit entry and shown to every later reviewer.
+        const overruled = await tx.decision.findMany({
+          where: { batchId, round: batch.round, stage: rule.stage, action: "REJECT" },
+          select: { actorId: true, reason: true },
+        });
+        if (overruled.length) data.overruledRejections = overruled;
+      }
+      await transition(tx, batch, status, actor.id, correlationId, data);
     }
     return { status, votes, needed, moved: status !== batch.status };
   });

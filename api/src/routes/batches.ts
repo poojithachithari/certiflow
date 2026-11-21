@@ -26,6 +26,14 @@ async function findVisibleBatch(user: User, id: string) {
   return batch;
 }
 
+/** Rejections in the current round that were outvoted: shown so the next reviewer can't miss them. */
+function dissentOf(batch: { status: string; round: number }, decisions: { round: number; action: string; stage: string; reason: string | null; actor: { name: string } }[]) {
+  if (batch.status === "REJECTED") return []; // the rejection won; nothing was overruled
+  return decisions
+    .filter((d) => d.round === batch.round && d.action === "REJECT")
+    .map((d) => ({ actor: d.actor.name, stage: d.stage, reason: d.reason }));
+}
+
 function awaitingUser(user: User, batch: Batch & { centre: { districtId: string } }, votedThisStage: boolean) {
   const rule = STAGES[batch.status];
   if (!rule || rule.ownerRole !== user.role || votedThisStage) return false;
@@ -36,7 +44,7 @@ batchesRouter.get("/batches", async (req, res) => {
   const user = req.user!;
   const batches = await prisma.batch.findMany({
     where: visibleBatchesWhere(user),
-    include: { centre: { include: { district: true } }, _count: { select: { candidates: true, certificates: true } }, decisions: true },
+    include: { centre: { include: { district: true } }, _count: { select: { candidates: true, certificates: true } }, decisions: { include: { actor: { select: { name: true } } } } },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
@@ -61,6 +69,7 @@ batchesRouter.get("/batches", async (req, res) => {
         approvals: current.filter((d) => d.action === "APPROVE").length,
         approvalsNeeded: rule?.quorum.APPROVE ?? null,
         awaitingMe: awaitingUser(user, b, current.some((d) => d.actorId === user.id)),
+        dissent: dissentOf(b, b.decisions).length,
         updatedAt: b.updatedAt,
       };
     }),
@@ -101,6 +110,7 @@ batchesRouter.get("/batches/:id", async (req, res) => {
     centre: { id: batch.centre.id, name: batch.centre.name, district: batch.centre.district.name },
     stage: rule ? { stage: rule.stage, ownerRole: rule.ownerRole, quorum: rule.quorum } : null,
     awaitingMe: awaitingUser(user, batch, current.some((d) => d.actorId === user.id)),
+    dissent: dissentOf(batch, decisions),
     candidates: candidates.map((c) => ({
       id: c.id,
       rowNumber: c.rowNumber,
