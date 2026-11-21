@@ -5,7 +5,7 @@ Skilling certificate issuance for the (fictional) Pragati Skills Mission: traini
 ### Quick start
 Needs only **Docker Desktop** (running). From a terminal:
 ```bash
-git clone https://github.com/<your-account>/certiflow.git
+git clone https://github.com/poojithachithari/certiflow.git
 cd certiflow
 docker compose up --build
 ```
@@ -86,7 +86,7 @@ Real WhatsApp/Meta integration, real sign-in, email/SMS notifications for escala
 
 ### Start the system
 ```bash
-git clone https://github.com/<your-account>/certiflow.git
+git clone https://github.com/poojithachithari/certiflow.git
 cd certiflow
 docker compose up --build
 ```
