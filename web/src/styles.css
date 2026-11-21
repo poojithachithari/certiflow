@@ -137,7 +137,7 @@ tr.row-attn td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
 .bubble { min-width: 0; }
 .bubble p { margin: 0; overflow-wrap: anywhere; }
 .bubble header { flex-wrap: wrap; }
-.bubble .btn { justify-self: start; }
+.bubble-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: min(380px, calc(100vw - 32px)); }
 .toast { background: var(--fg); color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.18); font-size: 14px; }

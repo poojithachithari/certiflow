@@ -175,13 +175,21 @@ export function PhonePage() {
       {stats && <p className="stats-line"><b>{stats.requests}</b> send attempts · <b>{stats.failures}</b> failed · <b>{stats.timeouts}</b> timed out after delivering · <b>{stats.deduplicated}</b> duplicates blocked · <b>{stats.delivered}</b> messages delivered</p>}
       {!msgs ? <p className="muted">Loading…</p> : msgs.length === 0 ? <div className="empty">No messages yet. Approve a batch as Farah to send certificates.</div> : (
         <div className="phones">
-          {msgs.map((m) => (
-            <article key={m.id} className="bubble">
-              <header><b>{m.to}</b><time>{fmt(m.receivedAt)}</time></header>
-              <p>{m.text.split(" . ")[0]}.</p>
-              <a className="btn small primary" href={m.documentUrl} target="_blank" rel="noreferrer">Download certificate (PDF)</a>
-            </article>
-          ))}
+          {msgs.map((m) => {
+            // The message also carries the public verification link (same one as the QR code on the PDF).
+            const verifyLink = m.text.match(/https?:\/\/\S+\/verify\?\S+/)?.[0];
+            const verifyPath = verifyLink ? new URL(verifyLink).pathname + new URL(verifyLink).search : null;
+            return (
+              <article key={m.id} className="bubble">
+                <header><b>{m.to}</b><time>{fmt(m.receivedAt)}</time></header>
+                <p>{m.text.split(" . ")[0]}.</p>
+                <div className="bubble-actions">
+                  <a className="btn small primary" href={m.documentUrl} target="_blank" rel="noreferrer">Download certificate (PDF)</a>
+                  {verifyPath && <Link className="btn small" to={verifyPath}>Check it as an employer</Link>}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
