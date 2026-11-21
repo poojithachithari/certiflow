@@ -14,6 +14,7 @@ x-api-env: &api-env
   SLA_MINUTES: "3"
   QUALITY_REVIEW_THRESHOLD: "50"
   LOG_LEVEL: info
+  SERVICE_NAME: certiflow
 
 services:
   postgres:
@@ -58,7 +59,9 @@ services:
   api:
     build: ./api
     command: ["node", "dist/server.js"]
-    environment: *api-env
+    environment:
+      <<: *api-env
+      SERVICE_NAME: api
     volumes:
       - certificates:/data/certificates
     ports:
@@ -72,7 +75,9 @@ services:
   worker:
     build: ./api
     command: ["node", "dist/worker.js"]
-    environment: *api-env
+    environment:
+      <<: *api-env
+      SERVICE_NAME: worker
     volumes:
       - certificates:/data/certificates
     deploy:

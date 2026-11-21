@@ -4,3 +4,4 @@ dist/
 *.log
 coverage/
 api/.certificates/
+.env.local.sh
