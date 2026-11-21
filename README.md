@@ -5,7 +5,14 @@ Skilling certificate issuance for the (fictional) Pragati Skills Mission: traini
 - **Run it:** `docker compose up --build`, then open http://localhost:8080. Full guide: [SETUP.md](SETUP.md)
 - **Run the tests:** `docker compose --profile test run --rm --build test`
 - **Production plan:** [DEPLOYMENT.md](DEPLOYMENT.md)
-- **Demo video (2 min):** https://drive.google.com/file/d/12cfyJrfXCxkdw2Wet4Sumwshm27xdI7K/view?usp=sharing
+
+## ▶ Demo video (2 min)
+
+[![CertiFlow demo: click to watch](docs/demo-preview.jpg)](https://drive.google.com/file/d/12cfyJrfXCxkdw2Wet4Sumwshm27xdI7K/view?usp=sharing)
+
+**[Watch the demo on Google Drive](https://drive.google.com/file/d/12cfyJrfXCxkdw2Wet4Sumwshm27xdI7K/view?usp=sharing)** (click the image or this link)
+
+What it shows, in order: a spreadsheet with bad rows rejected with per-row errors → a valid 60-candidate file submitted → two district officers approve (moves on once) → quality team → state office final approval → certificates issued and sent automatically → every candidate gets exactly one WhatsApp message even though the provider fails and times out on purpose (screenshot above: 15 failures, 6 timeouts, 6 duplicates blocked) → employer verifies a certificate without logging in → state office cancels it and the next check says *Cancelled* → overdue batch escalated automatically, with full history.
 
 ---
 
