@@ -1,0 +1,123 @@
+# CertiFlow - whole system with one command:  docker compose up --build
+# Secrets below are DEMO values only. Production secrets come from a secret manager (see DEPLOYMENT.md).
+
+x-api-env: &api-env
+  DATABASE_URL: postgresql://certiflow:certiflow@postgres:5432/certiflow
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: demo-only-jwt-secret-change-me
+  CERT_SIGNING_SECRET: demo-only-certificate-signing-secret
+  WHATSAPP_URL: http://mock-whatsapp:4000
+  PUBLIC_BASE_URL: http://localhost:8080
+  CERT_STORAGE_DIR: /data/certificates
+  # Batches waiting longer than this at one review stage are escalated to the state office.
+  # Real value would be ~48h (2880). Kept short so reviewers can watch it happen.
+  SLA_MINUTES: "3"
+  QUALITY_REVIEW_THRESHOLD: "50"
+  LOG_LEVEL: info
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: certiflow
+      POSTGRES_PASSWORD: certiflow
+      POSTGRES_DB: certiflow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-test-db.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U certiflow -d certiflow"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # AOF persistence: queued jobs survive a Redis restart.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ./api
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/seed.js"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: ./api
+    command: ["node", "dist/server.js"]
+    environment: *api-env
+    volumes:
+      - certificates:/data/certificates
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./api
+    command: ["node", "dist/worker.js"]
+    environment: *api-env
+    volumes:
+      - certificates:/data/certificates
+    deploy:
+      replicas: 2
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mock-whatsapp:
+        condition: service_started
+
+  mock-whatsapp:
+    build: ./api
+    command: ["node", "dist/mock-whatsapp/server.js"]
+    environment:
+      # Behaves like a real provider: some calls fail, some time out
+      # (and some time out AFTER the message was actually delivered).
+      MOCK_FAILURE_RATE: "0.2"
+      MOCK_TIMEOUT_RATE: "0.1"
+    ports:
+      - "4000:4000"
+
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  test:
+    profiles: ["test"]
+    build: ./api
+    command: ["sh", "-c", "npx prisma migrate deploy && npx vitest run"]
+    environment:
+      <<: *api-env
+      DATABASE_URL: postgresql://certiflow:certiflow@postgres:5432/certiflow_test
+      CERT_STORAGE_DIR: /tmp/certificates
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  certificates:

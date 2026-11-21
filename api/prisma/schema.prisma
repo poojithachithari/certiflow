@@ -1,0 +1,202 @@
+// CertiFlow data model.
+// Business rules that must NEVER break are enforced here with constraints,
+// not only in application code (see comments on each @unique).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CENTRE
+  DISTRICT_OFFICER
+  QUALITY
+  STATE_OFFICE
+}
+
+/// Review stages a batch passes through. Each stage has an owner role and a quorum.
+enum Stage {
+  DISTRICT
+  QUALITY
+  STATE
+}
+
+enum BatchStatus {
+  DRAFT
+  DISTRICT_REVIEW
+  QUALITY_REVIEW
+  STATE_REVIEW
+  SENT_BACK
+  REJECTED
+  APPROVED // approved by state office, certificates being issued
+  ISSUED // certificates created (delivery tracked per certificate)
+}
+
+enum DecisionAction {
+  APPROVE
+  REJECT
+  SEND_BACK
+}
+
+enum CertificateStatus {
+  VALID
+  REVOKED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model District {
+  id      String   @id
+  name    String
+  centres Centre[]
+  users   User[]
+}
+
+model Centre {
+  id         String   @id
+  name       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+  users      User[]
+  batches    Batch[]
+}
+
+model User {
+  id         String    @id
+  name       String
+  role       Role
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+  centreId   String?
+  centre     Centre?   @relation(fields: [centreId], references: [id])
+  decisions  Decision[]
+}
+
+model Batch {
+  id             String      @id @default(uuid())
+  centreId       String
+  centre         Centre      @relation(fields: [centreId], references: [id])
+  title          String
+  courseCode     String
+  courseName     String
+  status         BatchStatus @default(DRAFT)
+  /// Incremented on every (re)submission. Only decisions from the current round count.
+  round          Int         @default(0)
+  /// When the batch entered its current status - drives SLA escalation.
+  stageEnteredAt DateTime    @default(now())
+  /// Set once when the SLA is breached at the current stage; cleared on stage change.
+  escalatedAt    DateTime?
+  lastReason     String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  candidates   Candidate[]
+  decisions    Decision[]
+  certificates Certificate[]
+
+  @@index([status, stageEnteredAt])
+  @@index([centreId])
+}
+
+model Candidate {
+  id          String       @id @default(uuid())
+  batchId     String
+  batch       Batch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowNumber   Int
+  enrolmentNo String
+  name        String
+  /// E.164 format, e.g. +919876543210
+  phone       String
+  dateOfBirth DateTime     @db.Date
+  score       Int
+  certificate Certificate?
+
+  /// A candidate appears at most once in a batch.
+  @@unique([batchId, enrolmentNo])
+}
+
+/// Append-only: never updated or deleted. Who decided what, when, at which stage and round.
+model Decision {
+  id        String         @id @default(uuid())
+  batchId   String
+  batch     Batch          @relation(fields: [batchId], references: [id])
+  round     Int
+  stage     Stage
+  actorId   String
+  actor     User           @relation(fields: [actorId], references: [id])
+  action    DecisionAction
+  reason    String?
+  createdAt DateTime       @default(now())
+
+  /// One officer gets one vote per stage per round - cannot approve twice.
+  @@unique([batchId, round, stage, actorId])
+}
+
+model Certificate {
+  id             String            @id @default(uuid())
+  /// Human-readable number, from a Postgres sequence. Unique: no two certificates share a number.
+  number         String            @unique
+  /// One certificate per candidate row.
+  candidateId    String            @unique
+  candidate      Candidate         @relation(fields: [candidateId], references: [id])
+  batchId        String
+  batch          Batch             @relation(fields: [batchId], references: [id])
+  /// Denormalised so the "one certificate per person per course" rule can be a DB constraint.
+  enrolmentNo    String
+  courseCode     String
+  holderName     String
+  status         CertificateStatus @default(VALID)
+  issuedAt       DateTime          @default(now())
+  revokedAt      DateTime?
+  revokedById    String?
+  revokeReason   String?
+  /// SHA-256 of the secret download token sent only to the candidate's phone.
+  downloadTokenHash String         @unique
+  pdfPath        String?
+  deliveryStatus DeliveryStatus    @default(PENDING)
+  deliveryAttempts Int             @default(0)
+  deliveredAt    DateTime?
+  providerMessageId String?
+  lastDeliveryError String?
+
+  /// A person is certified at most once per course, even across batches.
+  @@unique([enrolmentNo, courseCode])
+  @@index([batchId])
+}
+
+/// Transactional outbox: written in the SAME transaction as the state change,
+/// then relayed to the queue. Guarantees no event is lost if a process dies.
+model OutboxEvent {
+  id            BigInt    @id @default(autoincrement())
+  type          String
+  aggregateId   String
+  payload       Json
+  correlationId String
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+
+  @@index([publishedAt, id])
+}
+
+/// Append-only audit trail for end-to-end traceability of batches and certificates.
+model AuditEvent {
+  id            BigInt   @id @default(autoincrement())
+  entityType    String // "batch" | "certificate"
+  entityId      String
+  action        String
+  actorId       String? // null = system (worker, scheduler)
+  data          Json?
+  correlationId String
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId, id])
+}
