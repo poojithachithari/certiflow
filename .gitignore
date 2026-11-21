@@ -5,3 +5,4 @@ dist/
 coverage/
 api/.certificates/
 .env.local.sh
+.certificates-test/
