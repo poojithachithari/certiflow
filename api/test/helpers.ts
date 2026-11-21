@@ -12,6 +12,8 @@ export const auth = (userId: string) => ({ Authorization: `Bearer ${signSession(
 
 /** Wipe all tables (TRUNCATE bypasses the append-only row triggers) and load the demo people. */
 export async function resetDb() {
+  const keys = await redis.keys("ratelimit:*"); // so back-to-back test runs don't trip the limiter
+  if (keys.length) await redis.del(...keys);
   await prisma.$executeRawUnsafe(`TRUNCATE "AuditEvent","OutboxEvent","Certificate","Decision","Candidate","Batch","User","Centre","District" RESTART IDENTITY CASCADE`);
   await prisma.district.createMany({ data: [{ id: "pune", name: "Pune" }, { id: "nagpur", name: "Nagpur" }] });
   await prisma.centre.createMany({

@@ -1,0 +1,14 @@
+# Stage 1: build static files with Node.
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json vite.config.ts index.html ./
+COPY src ./src
+RUN npm run build
+
+# Stage 2: serve them with nginx (small image, no Node, no source code).
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
